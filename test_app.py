@@ -395,7 +395,15 @@ sys._MEIPASS = str(me)
 sys.executable = str(exe / "AudioForge.exe")
 sys.path.insert(0, __PROJ__)             # cwd 是干净临时目录，得自己指路
 import audioforge as e              # import 期就会读配置
-print("DIR_OK" if e.resource("settings.yaml").parent == exe else "DIR_BAD")
+print("PROJ", __PROJ__)
+print("FROZEN", getattr(sys, "frozen", None))
+print("EXEC", sys.executable)
+print("MEIPASS", getattr(sys, "_MEIPASS", None))
+print("EXE_DIR_FILES", sorted(p.name for p in Path(sys.executable).parent.iterdir()))
+print("WRITABLE", e._writable_config())
+print("ENSURED", e.ensure_settings())
+print("RAW", (e._writable_config()).read_text(encoding="utf-8")[:120].replace("\n", "|"))
+print("DIR_OK" if e.resource("settings.yaml").parent == Path(sys.executable).parent else "DIR_BAD")
 print("THEME", e.CFG.get("theme", "<none>"))
 print("LANG", e.CFG.get("lang", "<none>"))
 '''
