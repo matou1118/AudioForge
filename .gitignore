@@ -1,0 +1,21 @@
+# 打包产物 / build artifacts
+build/
+dist/
+*.spec.bak
+__pycache__/
+*.pyc
+
+# 转码输出，不该进版本库 / transcoder output
+converted/
+*.mp3
+*.m4a
+*.opus
+*.ogg
+*.part
+
+# 编辑器 / editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

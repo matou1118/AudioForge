@@ -1,0 +1,6 @@
+# 界面用 PySide6；转码调用外部 ffmpeg（使用者自装，不在这里分发）
+# GUI only. Transcoding shells out to the user's own ffmpeg install.
+PySide6-Essentials>=6.5
+
+# 仅打包时需要 / only needed for packaging
+pyinstaller>=6.0

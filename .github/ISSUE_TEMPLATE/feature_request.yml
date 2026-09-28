@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest something AudioForge should do
+title: "[feature] "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that you can't today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: A sketch is fine. Please don't include a full implementation.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Conversion, UI, Metadata/tags, Batch behaviour, Packaging, Docs, Other]
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints this must respect
+      options:
+        - label: Never modifies or deletes source files
+          required: true
+        - label: Stays fully offline (no network calls)
+          required: true

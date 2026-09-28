@@ -1,0 +1,21 @@
+# AudioForge 配置 / Configuration
+# 改完重启生效；界面里切换主题/语言会自动写回这里。
+# Edits take effect on restart; switching theme or language in the UI writes back here.
+
+# ---------- 主题（界面右上角切换时会自动写入，这里是默认值） ----------
+# Theme. Written automatically when you switch in the UI; this is the fallback.
+theme: "Tokyo Night"
+
+# ---------- 界面语言：zh / en（界面右上角切换，会自动写入） ----------
+# UI language: zh / en. Written automatically when you switch in the UI.
+lang: "en"
+
+# ---------- ffmpeg / ffprobe 所在目录。留空就按 PATH 找。 ----------
+# 留空 = 依次查 PATH、exe 同目录、chocolatey、常见安装位置。
+# Directory holding ffmpeg.exe / ffprobe.exe. Empty = search PATH and common locations.
+ffmpeg_path: ""
+
+# ---------- 输出目录。留空 = 默认「源文件所在目录\converted」。 ----------
+# 绝不会覆盖源文件；重名自动加 (2) (3)。
+# Never overwrites the source; same-name outputs get " (2)", " (3)".
+out_dir: "C:\Users\Administrator\AppData\Local\Temp\af_test_z48u6h91\out"

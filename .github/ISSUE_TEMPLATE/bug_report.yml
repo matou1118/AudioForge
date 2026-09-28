@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in AudioForge doesn't work as documented
+title: "[bug] "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please run `python test_app.py` first and paste the output — most issues are
+        identifiable right there.
+
+  - type: textarea
+    id: selftest
+    attributes:
+      label: Self-test output
+      description: The full output of `python test_app.py`
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: ffmpeg
+    attributes:
+      label: ffmpeg version
+      description: "First line of `ffmpeg -version`"
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: input
+    attributes:
+      label: Input file
+      description: |
+        Format and how you got it (self-recorded / purchased / converted).
+        DO NOT attach copyrighted audio.
+      placeholder: "e.g. FLAC 44.1kHz stereo, purchased download"
+
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target format
+      options: [mp3, aac, opus, ogg, flac, alac, wav]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Any error output
+      description: The dialog text, or ffmpeg's stderr if you have it
+      render: shell

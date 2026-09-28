@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: "test (${{ matrix.python }})"
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install ffmpeg
+        run: choco install ffmpeg --no-progress -y
+
+      - name: Verify ffmpeg is on PATH
+        run: |
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Self-test
+        run: python test_app.py
+
+  package:
+    name: package
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: choco install ffmpeg --no-progress -y
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Package (PyInstaller onefile)
+        run: python -m PyInstaller --noconfirm AudioForge.spec
+
+      - name: "Smoke: the packaged exe"
+        run: |
+          python -c "import os, re, subprocess, sys
+          exe = os.path.join('dist', 'AudioForge.exe')
+          if not os.path.isfile(exe):
+              raise SystemExit('exe not built')
+          size = os.path.getsize(exe)
+          if size < 5_000_000:
+              raise SystemExit('exe is only %d bytes - looks truncated' % size)
+          print('exe size: %.1f MB' % (size / 1048576))
+          r = subprocess.run([exe, '--version'], capture_output=True,
+                             text=True, errors='replace', timeout=300)
+          out = (r.stdout or '') + (r.stderr or '')
+          print('rc=%d out=%r' % (r.returncode, out.strip()[:80]))
+          if r.returncode != 0:
+              raise SystemExit('exe exited %d' % r.returncode)
+          ver = re.search(r'\d+\.\d+\.\d+', out)
+          import audioforge as app
+          if not ver:
+              raise SystemExit('no version in output: %r' % out)
+          if ver.group(0) != app.__version__:
+              raise SystemExit('version mismatch: exe=%s source=%s'
+                               % (ver.group(0), app.__version__))
+          # settings.yaml must have landed next to the exe, non-empty
+          st = os.path.join('dist', 'settings.yaml')
+          if not os.path.isfile(st):
+              raise SystemExit('settings.yaml missing from dist')
+          if os.path.getsize(st) < 100:
+              raise SystemExit('settings.yaml is a 0-byte stub')
+          print('version OK:', app.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AudioForge-exe
+          path: dist/AudioForge.exe
+          if-no-files-found: error
+
+  release:
+    name: release
+    runs-on: windows-latest
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: AudioForge-exe
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: AudioForge.exe
+          draft: true
+          generate_release_notes: true
