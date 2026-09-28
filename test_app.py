@@ -377,29 +377,41 @@ def t_resource_priority():
 
     onefile 会把打包的 datas 解到 _MEIPASS（只读的一次性副本）。如果优先读
     它，用户放在 exe 旁边的配置永远不生效 —— 改了跟没改一样。这是个只有
-    打包后才暴露的 bug，用模拟 frozen 环境来测。
+    打包后才暴露的 bug。
+
+    关键：frozen / _MEIPASS / executable 必须在 import audioforge **之前**
+    设好。audioforge 在 import 期就会 load_settings()，顺序反了测的就是
+    另一个东西（本地能过、CI 上 KeyError 就是这么来的）。
     """
     script = r'''
-import sys, tempfile, os
+import sys, tempfile
 from pathlib import Path
-me   = Path(tempfile.mkdtemp())          # _MEIPASS: 只读模板
-exe  = Path(tempfile.mkdtemp())          # exe 同目录: 用户可改
+me  = Path(tempfile.mkdtemp())     # _MEIPASS：只读模板
+exe = Path(tempfile.mkdtemp())     # exe 同目录：用户可改
 (me / "settings.yaml").write_text('theme: "FROM_MEIPASS"\nlang: "zh"\n', encoding="utf-8")
 (exe / "settings.yaml").write_text('theme: "FROM_EXE_DIR"\nlang: "en"\n', encoding="utf-8")
-sys.frozen = True
+sys.frozen = True                  # 必须在 import 之前
 sys._MEIPASS = str(me)
 sys.executable = str(exe / "AudioForge.exe")
-import audioforge as e
-got = e.resource("settings.yaml")
-print(got.parent == exe, e.CFG["theme"], e.CFG["lang"])
+sys.path.insert(0, __PROJ__)             # cwd 是干净临时目录，得自己指路
+import audioforge as e              # import 期就会读配置
+print("DIR_OK" if e.resource("settings.yaml").parent == exe else "DIR_BAD")
+print("THEME", e.CFG.get("theme", "<none>"))
+print("LANG", e.CFG.get("lang", "<none>"))
 '''
-    r = subprocess.run([sys.executable, "-c", script], capture_output=True,
-                       text=True, errors="replace", timeout=120, cwd=str(ROOT))
-    assert r.returncode == 0, r.stderr[-300:]
-    out = r.stdout.strip()
-    assert out.startswith("True"), f"没优先读 exe 同目录: {out!r}"
-    assert "FROM_EXE_DIR" in out, f"读到的是 _MEIPASS 的副本: {out!r}"
-    assert "en" in out.split()[-1], f"lang 也不是用户那份: {out!r}"
+    # cwd 用干净的临时目录：否则子进程在源码目录跑，resource() 的兜底会找到
+    # 仓库里那份 settings.yaml，测的就不是「用户自带配置」这个场景了。
+    import tempfile as _tf
+    # 用 repr() 双重保险：路径里有空格和反斜杠，直接拼进源码会被当转义序列
+    script = script.replace("__PROJ__", repr(str(ROOT)))
+    with _tf.TemporaryDirectory(prefix="af_cfgtest_") as _cwd:
+        r = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                           text=True, errors="replace", timeout=120, cwd=_cwd)
+    assert r.returncode == 0, f"子进程挂了: {r.stderr[-400:]}"
+    out = r.stdout
+    assert "DIR_OK" in out, f"没优先读 exe 同目录:\n{out}"
+    assert "THEME FROM_EXE_DIR" in out, f"读到的是 _MEIPASS 的副本:\n{out}"
+    assert "LANG en" in out, f"lang 也不是用户那份:\n{out}"
 
 
 def t_ensure_settings_creates():
@@ -408,19 +420,31 @@ def t_ensure_settings_creates():
 import sys, tempfile
 from pathlib import Path
 me  = Path(tempfile.mkdtemp())
-exe = Path(tempfile.mkdtemp())
+exe = Path(tempfile.mkdtemp())          # 故意不放 settings.yaml
 (me / "settings.yaml").write_text('theme: "T"\nlang: "zh"\n', encoding="utf-8")
-sys.frozen = True
+sys.frozen = True                       # 必须在 import 之前
 sys._MEIPASS = str(me)
 sys.executable = str(exe / "AudioForge.exe")
+sys.path.insert(0, __PROJ__)
 import audioforge as e
 p = e._writable_config()
-print(p.parent == exe, p.exists(), p.read_text(encoding="utf-8").count("theme"))
+print("DIR_OK" if p.parent == exe else "DIR_BAD")
+print("EXISTS" if p.exists() else "MISSING")
+print("THEMES", p.read_text(encoding="utf-8").count("theme"))
 '''
-    r = subprocess.run([sys.executable, "-c", script], capture_output=True,
-                       text=True, errors="replace", timeout=120, cwd=str(ROOT))
-    assert r.returncode == 0, r.stderr[-300:]
-    assert r.stdout.strip() == "True True 1", r.stdout.strip()
+    # cwd 用干净的临时目录：否则子进程在源码目录跑，resource() 的兜底会找到
+    # 仓库里那份 settings.yaml，测的就不是「用户自带配置」这个场景了。
+    import tempfile as _tf
+    # 用 repr() 双重保险：路径里有空格和反斜杠，直接拼进源码会被当转义序列
+    script = script.replace("__PROJ__", repr(str(ROOT)))
+    with _tf.TemporaryDirectory(prefix="af_cfgtest_") as _cwd:
+        r = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                           text=True, errors="replace", timeout=120, cwd=_cwd)
+    assert r.returncode == 0, f"子进程挂了: {r.stderr[-400:]}"
+    out = r.stdout
+    assert "DIR_OK" in out, out
+    assert "EXISTS" in out, f"打包后没在 exe 旁边生成可改配置:\n{out}"
+    assert "THEMES 1" in out, out
 
 
 # ---------------------------------------------------------------- 主题 / i18n
