@@ -98,10 +98,19 @@ def load_settings() -> dict:
         return {}
     try:
         import yaml
+    except ImportError:
+        # 不能静默兜底。漏装 PyYAML 时以前这里会 return {}，表现是
+        # "配置怎么改都不生效" —— 排查成本极高。直接说清楚缺什么。
+        raise SystemExit(
+            "PyYAML 没装，settings.yaml 读不了。\n"
+            "PyYAML is missing, settings.yaml cannot be read.\n"
+            "  pip install -r requirements.txt") from None
+    try:
         raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
         return raw if isinstance(raw, dict) else {}
-    except Exception:
-        # 配置坏了就用默认值，绝不让整个程序起不来
+    except Exception as e:
+        # 配置坏了不该让程序起不来，但要留下线索
+        CFG_ERROR = f"settings.yaml 解析失败（{p}）: {e}"
         return {}
 
 
@@ -109,7 +118,16 @@ CFG = load_settings()
 
 
 def set_config_value(key: str, literal: str) -> None:
-    """就地改配置并落盘。literal 是已序列化的 YAML 标量（含引号）。"""
+    r"""就地改配置并落盘。
+
+    literal 是已序列化的 YAML 标量（含引号）。
+
+    Windows 路径必须转义反斜杠：YAML 双引号里 `C:\\Users\\...` 的 \U 是
+    非法转义，safe_load 直接报 ScannerError。写 `C:\Users` 会让**整个
+    settings.yaml 解析失败**，load_settings 兜底返回 {}，于是「改输出目录
+    之后所有配置都失效了」—— 症状离病因十万八千里。必须 yaml.safe_dump 那一
+    层的转义。
+    """
     p = _writable_config()
     if not p.exists():
         return
@@ -119,16 +137,29 @@ def set_config_value(key: str, literal: str) -> None:
         for ln in lines:
             m = re.match(rf"^(\s*){re.escape(key)}\s*:", ln)
             if m:
-                out.append(f"{m.group(1)}{key}: {literal}\n")
+                out.append(f"{m.group(1)}{key}: {_yaml_quote(literal.strip())}\n")
                 hit = True
             else:
                 out.append(ln)
         if not hit:
-            out.append(f"{key}: {literal}\n")
+            out.append(f"{key}: {_yaml_quote(literal.strip())}\n")
         p.write_text("".join(out), encoding="utf-8")
     except OSError:
         return          # 只读就只更新内存里的值，不报错打扰用户
     CFG[key] = literal.strip().strip('"')
+
+
+def _yaml_quote(value: str) -> str:
+    r"""给 YAML 值加引号，反斜杠保持字面量。
+
+    手写 f'"{value}"' 是不够的：Windows 路径里满地反斜杠，而 YAML 双引号
+    标量里反斜杠 + 大写字母/数字都被当转义序列（U/T/N 这几个尤其致命）。
+    用单引号更省事 —— 单引号里只有单引号本身需要转义，反斜杠是字面量。
+    """
+    v = value.strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+        v = v[1:-1]        # 调用方可能已经带了引号，别套两层
+    return "'" + v.replace("'", "''") + "'"
 
 
 # ---------------------------------------------------------------- 颜色

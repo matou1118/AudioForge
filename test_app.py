@@ -395,15 +395,10 @@ sys._MEIPASS = str(me)
 sys.executable = str(exe / "AudioForge.exe")
 sys.path.insert(0, __PROJ__)             # cwd 是干净临时目录，得自己指路
 import audioforge as e              # import 期就会读配置
-print("PROJ", __PROJ__)
-print("FROZEN", getattr(sys, "frozen", None))
-print("EXEC", sys.executable)
-print("MEIPASS", getattr(sys, "_MEIPASS", None))
-print("EXE_DIR_FILES", sorted(p.name for p in Path(sys.executable).parent.iterdir()))
-print("WRITABLE", e._writable_config())
-print("ENSURED", e.ensure_settings())
-print("RAW", (e._writable_config()).read_text(encoding="utf-8")[:120].replace("\n", "|"))
-print("DIR_OK" if e.resource("settings.yaml").parent == Path(sys.executable).parent else "DIR_BAD")
+# 测的是 _writable_config()，不是 resource() —— 后者现在已经没人调用了
+# （重构后 load_settings 走 ensure_settings -> _writable_config）。之前
+# 一直在测一个死函数，CI 上 DIR_BAD 而本地 DIR_OK，两边都不算证据。
+print("DIR_OK" if e._writable_config().parent == exe else "DIR_BAD")
 print("THEME", e.CFG.get("theme", "<none>"))
 print("LANG", e.CFG.get("lang", "<none>"))
 '''
@@ -516,6 +511,73 @@ def t_i18n_complete():
     assert lang.T("开始转换") == "开始转换", "中文模式必须是恒等"
 
 
+def t_deps_declared():
+    """requirements.txt 必须列全运行时依赖。
+
+    漏了 PyYAML 时 load_settings() 的 import yaml 会失败，被 except 兜住静默
+    返回 {}，表现是「配置怎么改都不生效」—— 本机有（别的包带的）所以一直绿，
+    CI 全新环境才红。这个测试是防重蹈覆辙的。
+    """
+    req = (ROOT / "requirements.txt").read_text(encoding="utf-8").lower()
+    for need, why in (("pyside6", "界面"),
+                      ("pyyaml", "settings.yaml 解析，漏了配置静默失效"),
+                      ("pyinstaller", "打包")):
+        assert need in req, f"requirements.txt 漏了 {need}（{why}）"
+    import importlib
+    for mod in ("yaml", "PySide6.QtWidgets"):
+        try:
+            importlib.import_module(mod)
+        except ImportError as e:
+            raise AssertionError(f"{mod} 装了 requirements 也 import 不了: {e}")
+
+
+def t_settings_actually_loaded():
+    """配置真的被读到了 —— CFG 不能是空的。
+
+    t_deps_declared 查依赖表，这条查运行时效果。
+    """
+    assert engine.CFG, "CFG 是空的：settings.yaml 没读到（多半是缺 PyYAML）"
+    assert "theme" in engine.CFG, f"CFG 缺 theme: {engine.CFG}"
+
+
+def t_windows_path_in_yaml():
+    r"""Windows 路径写进 settings.yaml 后必须还能读回来。
+
+    这是个真 bug：set_config_value 原来写的是 f'"{value}"'，而 YAML 双引号
+    标量里反斜杠 + 大写字母是转义序列（\U 尤其致命）。safe_load 直接报
+    ScannerError -> load_settings 兜底返回 {} -> **整个配置失效**，表现是
+    「我在界面里换了输出目录之后，主题和语言也一起失效了」，症状离病因十万
+    八千里。
+
+    所以：写完必须用 yaml.safe_load 验一遍能读，且反斜杠完好。
+    """
+    import yaml
+    d = tmpdir()
+    p = d / "settings.yaml"
+    p.write_text('theme: "Ink"\nlang: "zh"\nout_dir: ""\n', encoding="utf-8")
+
+    saved = engine._writable_config
+    engine._writable_config = lambda: p
+    try:
+        winpath = r"C:\Users\Administrator\My Music\out"
+        engine.set_config_value("out_dir", f'"{winpath}"')
+        engine.set_config_value("theme", '"Rosé Pine"')   # 带重音也不能坏
+
+        back = yaml.safe_load(p.read_text(encoding="utf-8"))
+        assert back is not None, "写完就读不回来了"
+        assert back["out_dir"] == winpath, \
+            f"路径被 YAML 吃了转义: {back['out_dir']!r} != {winpath!r}"
+        assert back["theme"] == "Rosé Pine", back["theme"]
+        # 注释和别的键不能被这次写入弄丢
+        assert "lang" in back, back
+    finally:
+        engine._writable_config = saved
+
+    # 顺手确认 _yaml_quote 自己是对的
+    q = engine._yaml_quote(r"C:\a\b")
+    assert yaml.safe_load(f"k: {q}")["k"] == r"C:\a\b", q
+
+
 # ---------------------------------------------------------------- 文档 / 仓库
 
 def t_docs_present():
@@ -604,6 +666,9 @@ CHECKS = [
     ("主题对比度达 AA", t_theme_contrast),
     ("按钮文字对比度达 AA", t_theme_onaccent),
     ("界面文案英译无遗漏", t_i18n_complete),
+    ("依赖声明完整", t_deps_declared),
+    ("配置真的被读到", t_settings_actually_loaded),
+    ("Windows 路径写进 YAML 不坏", t_windows_path_in_yaml),
     ("文档齐全", t_docs_present),
     ("中英文档成对", t_docs_bilingual),
     ("仓库链接用户名一致", t_repo_links),

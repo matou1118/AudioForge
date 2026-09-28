@@ -2,5 +2,10 @@
 # GUI only. Transcoding shells out to the user's own ffmpeg install.
 PySide6-Essentials>=6.5
 
+# settings.yaml 的解析。不能省：漏了它 import yaml 会失败，
+# 而 load_settings() 用 except Exception 兜着，会静默返回 {} ——
+# 表现是"配置怎么改都不生效"，非常难查。这个坑踩过一次（CI 红而本地绿）。
+PyYAML>=6.0
+
 # 仅打包时需要 / only needed for packaging
 pyinstaller>=6.0
