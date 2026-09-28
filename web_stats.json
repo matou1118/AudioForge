@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "scanners": 7,
+  "tests": 31,
+  "themes": 6,
+  "targets": [
+    {
+      "label": "MP3",
+      "ext": ".mp3",
+      "codec": "libmp3lame",
+      "lossless": false
+    },
+    {
+      "label": "AAC",
+      "ext": ".m4a",
+      "codec": "aac",
+      "lossless": false
+    },
+    {
+      "label": "Opus",
+      "ext": ".opus",
+      "codec": "libopus",
+      "lossless": false
+    },
+    {
+      "label": "Vorbis",
+      "ext": ".ogg",
+      "codec": "libvorbis",
+      "lossless": false
+    },
+    {
+      "label": "FLAC",
+      "ext": ".flac",
+      "codec": "flac",
+      "lossless": true
+    },
+    {
+      "label": "ALAC",
+      "ext": ".m4a",
+      "codec": "alac",
+      "lossless": true
+    },
+    {
+      "label": "WAV",
+      "ext": ".wav",
+      "codec": "pcm_s16le",
+      "lossless": true
+    }
+  ]
+}

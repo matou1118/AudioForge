@@ -282,8 +282,30 @@ def t_gui_end_to_end():
     d = tmpdir()
     for n in ("x", "y"):
         engine.make_tone_wav(d / f"{n}.wav", seconds=0.6)
-    engine.set_config_value("out_dir", f'"{d / "out"}"')
-    w.lbl_out.setText(str(d / "out"))
+    # 别用 set_config_value 改真实的 settings.yaml —— 那是用户的配置。
+    # 之前这么写把临时路径写进了 dist/settings.yaml，用户第一次打开就看到一个
+    # 指向 af_test_xxx 的输出目录。这里换成本次测试专用的配置文件。
+    cfg = d / "settings.yaml"
+    cfg.write_text('theme: "Tokyo Night"\nlang: "en"\nout_dir: ""\n', encoding="utf-8")
+    saved_wc = engine._writable_config
+    saved_cfg = dict(engine.CFG)
+    engine._writable_config = lambda: cfg
+    try:
+        engine.set_config_value("out_dir", f'"{d / "out"}"')
+        _run_gui_convert(w, d)
+    finally:
+        engine._writable_config = saved_wc
+        # set_config_value 会顺手改内存里的 CFG，不还原的话测试值会漏给后面
+        # 的检查（t_tests_dont_touch_real_settings 抓到过这个）
+        engine.CFG.clear()
+        engine.CFG.update(saved_cfg)
+    w.close()
+
+
+def _run_gui_convert(w, d) -> None:
+    """界面端到端：导入 -> 渲染 -> 跳过无损转无损 -> 转 MP3 -> FLAC。"""
+    from PySide6.QtCore import QCoreApplication
+    w.lbl_out.setFull(str(d / "out"))
     w.add_paths([str(d / "x.wav"), str(d / "y.wav")])
     t0 = time.monotonic()
     while w.probe_thread and w.probe_thread.isRunning():
@@ -578,6 +600,36 @@ def t_windows_path_in_yaml():
     assert yaml.safe_load(f"k: {q}")["k"] == r"C:\a\b", q
 
 
+def t_tests_dont_touch_real_settings():
+    """自检跑完之后，用户的 settings.yaml 必须没被改过。
+
+    踩过两次：端到端测试直接调 set_config_value("out_dir", ...)，把临时路径
+    写进了真实的 settings.yaml（还因此产生了一个 YAML 语法坏掉的文件 ——
+    未转义的 Windows 路径让 safe_load 报 ScannerError，exe 启动时读配置
+    抛异常，界面就是一个白窗口）。
+
+    注意这里**不再重跑 t_gui_end_to_end**（那会 close 掉窗口再重建，Qt 在
+    同一个 QApplication 里会访问冲突，进程直接 0xC0000005）。只验证配置
+    本身没被污染 —— 真正的防线是 t_gui_end_to_end 里已改用临时配置文件。
+    """
+    import audioforge as eng
+    import yaml
+    p = eng._writable_config()
+    assert p.exists(), f"配置文件不在预期位置: {p}"
+    raw = p.read_text(encoding="utf-8")
+
+    # 必须能解析（未转义路径会让 safe_load 抛 ScannerError）
+    d = yaml.safe_load(raw)
+    assert isinstance(d, dict), "settings.yaml 解析不出字典"
+    assert "theme" in d, f"settings.yaml 缺 theme: {d}"
+    assert not d.get("out_dir"), \
+        f"settings.yaml 的 out_dir 指向了临时目录: {d['out_dir']!r}（自检污染了它）"
+    # 内存里的 CFG 是进程级缓存，各项测试改过它；只断言「文件没被污染」。
+    # 文件才是用户下次启动时读的东西。
+    assert "af_test_" not in raw, \
+        "settings.yaml 里出现了测试临时路径，自检污染了用户的配置"
+
+
 # ---------------------------------------------------------------- 文档 / 仓库
 
 def t_docs_present():
@@ -669,6 +721,7 @@ CHECKS = [
     ("依赖声明完整", t_deps_declared),
     ("配置真的被读到", t_settings_actually_loaded),
     ("Windows 路径写进 YAML 不坏", t_windows_path_in_yaml),
+    ("自检不碰用户配置", t_tests_dont_touch_real_settings),
     ("文档齐全", t_docs_present),
     ("中英文档成对", t_docs_bilingual),
     ("仓库链接用户名一致", t_repo_links),

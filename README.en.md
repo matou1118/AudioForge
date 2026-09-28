@@ -3,7 +3,7 @@
 **Local audio transcoding. Your source files are never touched — output goes to its own folder.**
 
 [![CI](https://github.com/matou1118/AudioForge/actions/workflows/ci.yml/badge.svg)](https://github.com/matou1118/AudioForge/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-9ece6a.svg)](LICENSE)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-9ece6a.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-7aa2f7.svg)
 
 [中文](README.md) · [Usage](docs/usage.en.md) · [Screenshots](docs/Screenshots.en.md) · [Changelog](CHANGELOG.en.md)
@@ -126,5 +126,15 @@ See [CONTRIBUTING.en.md](CONTRIBUTING.en.md). Bugs go through the
 
 ## License
 
-[MIT](LICENSE). This project ships no audio codecs — ffmpeg is yours to install and is not redistributed
+## License
+
+**[CC BY-NC 4.0](LICENSE) — attribution (Matou1118), non-commercial**
+
+- **You may** modify it, build on it, ship your own version
+- **You must** credit Matou1118, keep the licence notice, and say whether you changed it
+- **You may not** use it commercially - a free fork is fine; selling it, bundling it
+  into a paid product, or monetising it with ads is not
+- If unsure, [open an issue](https://github.com/matou1118/AudioForge/issues) and ask
+
+This project ships no audio codecs - ffmpeg is yours to install and is not redistributed here.
 here.

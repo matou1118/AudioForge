@@ -31,12 +31,14 @@ def fmt_dur(sec: float) -> str:
 
 def build_qss(t: Dict[str, str]) -> str:
     return f"""
-/* 底色只给窗口和卡片，中间层透明：每层都有背景的话，Qt 重绘会从子控件
-   一路传播到顶层，改一个进度条就是全窗重绘，扫描/转码时满屏闪。 */
+/* 底色只给窗口和卡片。中间层**不要**写 background:transparent ——
+   那样 Qt 会给所有控件启用透明合成，连 #root 的底色一起吃掉，整窗变成
+   纯黑/纯白，什么都看不见（踩过一次：界面全白）。只改字体和文字颜色，
+   让控件保持默认的不绘制背景即可。 */
 QMainWindow, QWidget#root {{ background:{t['bg']}; }}
-QWidget, QLabel, QCheckBox, QScrollArea, QProgressBar, QComboBox {{
+QLabel, QCheckBox, QScrollArea, QProgressBar, QComboBox {{
   color:{t['fg']}; font-family:"Microsoft YaHei UI","Segoe UI",sans-serif;
-  font-size:13px; background:transparent; border:none; }}
+  font-size:13px; border:none; }}
 
 #title   {{ font-size:20px; font-weight:600; }}
 #subtitle{{ font-size:12px; color:{t['fg3']}; }}

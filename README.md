@@ -3,7 +3,7 @@
 **本地音频转码。源文件永不改动，输出到单独目录。**
 
 [![CI](https://github.com/matou1118/AudioForge/actions/workflows/ci.yml/badge.svg)](https://github.com/matou1118/AudioForge/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-9ece6a.svg)](LICENSE)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-9ece6a.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-7aa2f7.svg)
 
 [English](README.en.md) · [使用说明](docs/usage.md) · [截图](docs/Screenshots.md) · [变更日志](CHANGELOG.md)
@@ -110,4 +110,13 @@ python test_app.py
 
 ## 许可证
 
-[MIT](LICENSE)。本项目不包含任何音频编解码器 —— ffmpeg 由你自己安装，不在这里分发。
+## 许可证
+
+**[CC BY-NC 4.0](LICENSE) — 署名（Matou1118）· 禁商用**
+
+- **可以**改、可以二次开发、可以做成自己的版本
+- **必须**署名原作者 Matou1118，保留许可声明，注明是否修改
+- **不能**商用 —— 不收费的修改版随便用；收费、打包进付费产品、接广告都不行
+- 拿不准就[开个 issue 问](https://github.com/matou1118/AudioForge/issues)
+
+本项目不包含任何音频编解码器 —— ffmpeg 由你自己安装，不在这里分发。

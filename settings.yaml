@@ -18,4 +18,4 @@ ffmpeg_path: ""
 # ---------- 输出目录。留空 = 默认「源文件所在目录\converted」。 ----------
 # 绝不会覆盖源文件；重名自动加 (2) (3)。
 # Never overwrites the source; same-name outputs get " (2)", " (3)".
-out_dir: 'C:\Users\Administrator\AppData\Local\Temp\af_test_cv935edx\out'
+out_dir: ""
