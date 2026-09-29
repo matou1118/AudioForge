@@ -63,6 +63,14 @@ def make_samples(d: Path) -> list:
 def main() -> int:
     code = sys.argv[1] if len(sys.argv) > 1 else "zh"
     suffix = "" if code == "zh" else f".{code}"
+    work = Path(tempfile.mkdtemp(prefix="af_shot_"))
+    # 截图要改配置（语言、输出目录），但绝不能写进仓库里的 settings.yaml：
+    # 上一版就是这么把 af_shot_xxxx 的临时路径提交上去的，还会作为模板打进
+    # exe，新用户首次运行就拿到一个死路径。这里把配置重定向到临时目录。
+    # ponytail: 改 engine 加 AUDIOFORGE_CONFIG 环境变量更彻底，但要重打包 +
+    # 重新确认；截图脚本这个场景不值得，等有第二个调用方再说。
+    engine._writable_config = lambda: work / "settings.yaml"
+    (work / "settings.yaml").write_text(engine.DEFAULT_SETTINGS, encoding="utf-8")
     lang.set_lang(code)
     engine.set_config_value("lang", f'"{code}"')
 
@@ -71,7 +79,6 @@ def main() -> int:
     from PySide6.QtGui import QFont
     qa.setFont(QFont("Microsoft YaHei UI", 9))
 
-    work = Path(tempfile.mkdtemp(prefix="af_shot_"))
     try:
         samples = make_samples(work)
         # 鍏堣浆鎴愭湁鎹燂紝璁╁垪琛ㄩ噷涓ょ閮芥湁
