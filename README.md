@@ -108,6 +108,12 @@ python test_app.py
 
 见 [CONTRIBUTING.md](CONTRIBUTING.md)。报 bug 用 [issue 模板](.github/ISSUE_TEMPLATE/bug_report.yml)。
 
+## 支持这个项目
+
+- ⭐ Star 一下，让更多人看到
+- 🐛 [提 Issue 报 bug](https://github.com/matou1118/AudioForge/issues)
+- 💰 [爱发电](https://afdian.com/a/matou1118) 支持维护
+
 ## 许可证
 
 ## 许可证

@@ -124,6 +124,12 @@ output folder is separate from the source folder and same names get numbered.
 See [CONTRIBUTING.en.md](CONTRIBUTING.en.md). Bugs go through the
 [issue template](.github/ISSUE_TEMPLATE/bug_report.yml).
 
+## Support this project
+
+- ⭐ Star it so more people find it
+- 🐛 [Open an issue](https://github.com/matou1118/AudioForge/issues) for bugs
+- 💰 [Afdian](https://afdian.com/a/matou1118) to support maintenance
+
 ## License
 
 ## License
