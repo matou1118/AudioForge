@@ -101,19 +101,13 @@ jobs:
           path: dist/AudioForge.exe
           if-no-files-found: error
 
-  release:
-    name: release
-    runs-on: windows-latest
-    needs: package
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: AudioForge-exe
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: AudioForge.exe
-          draft: true
-          generate_release_notes: true
+# 这里原来有一个 release job：tag 推送时用 softprops/action-gh-release 把 CI
+# 自己编的 exe 传上去。问题是该 action 默认覆盖同名资产，于是它会把发布页上
+# 那个「人已经打开确认过」的 exe 悄悄换成一个没人见过的二进制 —— 发布页和用户
+# 手里的对不上，出了 bug 谁都说不清是哪一份。
+#
+# 现在发布只有一个人写：本地 build.bat 出包 -> 用户实际打开确认 -> 上传。
+# CI 只负责证明「这份源码在 3.10~3.13 上能编能跑」，产物作为 artifact 留着，
+# 但绝不自动发布。
+#
+# 真要恢复自动发布，先加 overwrite_files: false，别让它覆盖。
