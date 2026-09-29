@@ -10,26 +10,39 @@ First public release.
 
 ### Added
 
-- **7 target formats** — MP3, AAC, Opus, Vorbis (lossy) and FLAC, ALAC, WAV (lossless). The self-test
-  checks that each one's encoder actually exists in your ffmpeg, so the UI never offers a format it can't
-  produce.
-- **Drag-and-drop or browse** for input, with per-file `ffprobe` inspection: codec, sample rate, channels,
-  duration, bitrate, and a lossless/lossy verdict.
-- **Real transcoding via ffmpeg**, with progress reporting and a working Cancel button.
-- **Sources are never modified.** Output goes to a separate folder; same-name files get `(2)`, `(3)`.
-- **Verified round-trip** — every output is read back with `ffprobe` and checked for codec, duration and
-  lossless-ness.
-- **Clean failure** — output is written to `.part` and only renamed on success, so a failed run leaves
-  nothing behind.
-- **Lossless → lossless is skipped** with a stated reason instead of burning CPU.
-- **6 colour themes** (Studio Dark / Studio Light / Paper / Ink / Rosé Pine / Tokyo Night), all verified
-  against WCAG AA (4.5:1).
-- **Chinese and English UI**, switchable, persisted to `settings.yaml`.
-- **`--probe` CLI** for inspecting files without the GUI.
-- **24 self-tests**, run in CI on Python 3.10–3.13.
+- **Batch audit**: drop a folder in (recurses the whole tree) or run
+  `AudioForge.exe --audit <dir>`. You get a table grouping files into
+  convertible / DRM-encrypted / damaged / empty, with counts and sizes. It answers
+  "how much of this pile is actually unusable". The status bar shows the same
+  summary; hover it for per-file detail.
+- **Honest DRM detection**: KGM / VPR / QMC / NCM are caught by magic number
+  *before* ffprobe runs, and grouped as "DRM-encrypted". Nothing is unpacked.
+
+### Fixed
+
+- **White screen**: `__init__` called `set_updates(False)` (originally for
+  "don't repaint while converting"), so every widget was built but never painted
+  and the window came up blank. Removing it took the colour count from 1 to 181.
+  The self-test never caught this - it inspects widget attributes, not pixels.
+- **Misleading error text**: telling the user a perfectly intact encrypted file
+  might be "damaged or incomplete" makes them re-download it.
+- **ffprobe's English errors leaked to the UI**: `Invalid data found when
+  processing input` says neither what's broken nor what to try. Now translated by
+  file header (truncated / not audio / no permission / broken MP4 index / empty).
+- **Folder drop only went one level deep**: files in subdirectories were silently
+  missed. Now uses `rglob`.
+- **The packaged exe now reads settings.yaml from beside itself** rather than the
+  read-only copy in `_MEIPASS` - otherwise user config edits did nothing.
+- **requirements.txt was missing PyYAML**: without it `import yaml` failed, got
+  swallowed by the except, and silently returned `{}` - presenting as "config
+  changes do nothing".
+- **Tests wrote to the user's settings.yaml**, and the unescaped Windows path made
+  the YAML unparseable, so the exe raised while reading config at startup - which
+  is *another* white window.
+- **spec had empty hiddenimports**: PySide6.QtCore/QtGui/QtWidgets weren't listed,
+  so the Qt platform plugin may not be bundled.
 
 ### Design decisions
-
 - **ffmpeg is a dependency, not a bundled blob.** It is LGPL/GPL, and redistributing it adds compliance
   cost and ~80 MB. The app detects it and tells you how to get it.
 - **The output container is declared explicitly with `-f`.** Intermediate files are named `song.mp3.part`,

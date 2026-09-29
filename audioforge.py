@@ -312,6 +312,86 @@ class Track:
     err: str = ""
 
 
+# 已知 DRM 封装的头部魔数。不是为了解包，纯粹是为了**如实告诉用户这是什么** ——
+# 说「文件损坏」是误导：文件是好的，只是有版权保护，ffprobe 读不懂。
+KGM_MAGIC = bytes([0x7C, 0xD5, 0x32, 0xEB, 0x86, 0x02, 0x7F, 0x4B,
+                   0xA8, 0xAF, 0xA6, 0x8E, 0x0F, 0xFF, 0x99, 0x14])
+VPR_MAGIC = bytes([0x05, 0x28, 0xBC, 0x96, 0xE9, 0xE4, 0x5A, 0x43,
+                   0x91, 0xAA, 0xBD, 0xD0, 0x7A, 0xF5, 0x36, 0x31])
+
+DRM_HINT = {
+    "KGM": "KGM（KuGou 加密格式）",
+    "VPR": "VPR（加密格式）",
+    "QMC": "QMC（QQ 音乐加密格式）",
+    "NCM": "NCM（网易云加密格式）",
+}
+
+DRM_MAGICS = [
+    (KGM_MAGIC, "KGM"), (VPR_MAGIC, "VPR"),
+    (b"QMC", "QMC"), (b"ftypNCM", "NCM"),
+]
+
+
+def _read_head(p: Path, n: int = 16) -> bytes:
+    try:
+        with p.open("rb") as f:
+            return f.read(n)
+    except OSError:
+        return b""
+
+
+def _drm_kind(p: Path) -> str:
+    """认出常见的 DRM 加密封装。只用于**如实报错**，不做任何解包。"""
+    head = _read_head(p, 16)
+    for magic, name in DRM_MAGICS:
+        if head[:len(magic)] == magic:
+            return DRM_HINT[name]
+    return ""
+
+
+def _why_probe_failed(p: Path, stderr: str) -> str:
+    """ffprobe 拒绝了这个文件 —— 翻译成人话，并先排掉 DRM。"""
+    drm = _drm_kind(p)
+    if drm:
+        return (f"{drm}，带版权保护，解不开。文件本身没坏 —— "
+                f"要能直接播放的版本，请从提供方买无 DRM 的格式")
+    low = stderr.lower()
+    head = _read_head(p, 8)
+    if "invalid data" in low or "invalid data found" in low:
+        if head[:4] == b"fLaC":
+            return ("是 FLAC，但文件被截断或头信息损坏（ffprobe 报 Invalid data）")
+        if head[:3] == b"ID3" or head[:2] == b"\xff\xfb":
+            return "看起来是 MP3，但文件被截断或已损坏（ffprobe 报 Invalid data）"
+        if not head:
+            return "文件是空的（0 字节）"
+        return "文件内容 ffprobe 认不出来：可能已损坏，或不是音频文件"
+    if "permission" in low or "denied" in low:
+        return "没有权限读这个文件（可能被其他程序占用，或权限不足）"
+    if "moov atom not found" in low:
+        return "MP4/M4A 的索引损坏或文件没下完（moov atom not found）"
+    if not head:
+        return "文件是空的（0 字节）"
+    return f"ffprobe 打不开这个文件：{stderr.strip()[:100] or '未知原因'}"
+
+
+def _why_unreadable(p: Path) -> str:
+    """读不出时长时如实说明原因，别一律说「文件损坏」。
+
+    之前这里是「读不到时长，可能是损坏或不完整的文件」—— 对着完好的
+    加密文件说它损坏，是误导：用户会以为自己下载坏了、重新下一遍。
+    """
+    drm = _drm_kind(p)
+    if drm:
+        return (f"{drm}，带版权保护，解不开。文件本身没坏 —— "
+                f"要能直接播放的版本，请从提供方买无 DRM 的格式")
+    head = _read_head(p, 8)
+    if head[:4] == b"fLaC":
+        return "是 FLAC，但 ffprobe 读不出时长（可能头信息损坏或文件被截断）"
+    if head[:3] == b"ID3" or head[:2] == b"\xff\xfb":
+        return "看起来是 MP3，但 ffprobe 读不出时长（可能文件被截断）"
+    return "读不到时长，ffprobe 不认得这个文件（也可能确实损坏）"
+
+
 def probe(path: str) -> Track:
     t = Track(path=path)
     p = Path(path)
@@ -331,6 +411,16 @@ def probe(path: str) -> Track:
     if not exe:
         t.why = "找不到 ffprobe"
         return t
+
+    # 先看文件头再叫 ffprobe。DRM 加密文件（KGM/VPR/QMC/NCM）喂给 ffprobe
+    # 不会干净地报错，而是吐出半截乱码当元数据，json.loads 抛 Invalid
+    # \escape，报错信息完全指不到真因。直接按魔数拦下来，消息才说得清。
+    drm = _drm_kind(p)
+    if drm:
+        t.why = (f"{drm}，带版权保护，解不开。文件本身没坏 —— "
+                 f"要能直接播放的版本，请从提供方买无 DRM 的格式")
+        return t
+
     try:
         r = subprocess.run(
             [exe, "-v", "error", "-print_format", "json",
@@ -340,8 +430,9 @@ def probe(path: str) -> Track:
         t.why = f"ffprobe 失败: {e}"
         return t
     if r.returncode != 0:
-        err = (r.stderr or "").strip()
-        t.why = err[:120] if err else "ffprobe 报错，文件可能已损坏"
+        # ffprobe 的英文报错直接透给用户是没用的：「Invalid data found when
+        # processing input」既没说哪坏了、也没说可能是什么问题。翻成人话。
+        t.why = _why_probe_failed(p, r.stderr or "")
         return t
     try:
         import json
@@ -376,10 +467,125 @@ def probe(path: str) -> Track:
     t.artist = tags.get("artist") or tags.get("album_artist") or ""
     t.lossless = (t.codec in LOSSLESS_CODECS) or (p.suffix.lower() in LOSSLESS_EXTS)
     if t.duration <= 0:
-        t.why = "读不到时长，可能是损坏或不完整的文件"
+        t.why = _why_unreadable(p)
         return t
     t.ok = True
     return t
+
+
+# ---------------------------------------------------------------- 批量体检
+
+#: 体检分类。顺序即报告里的显示顺序。
+VERDICT_OK = "ok"            # 能转
+VERDICT_DRM = "drm"          # DRM 加密，解不开
+VERDICT_BROKEN = "broken"    # 真的坏了 / 不是音频
+VERDICT_EMPTY = "empty"      # 0 字节
+
+
+@dataclass
+class Verdict:
+    path: str
+    verdict: str
+    size: int = 0
+    note: str = ""
+    track: Optional[Track] = None
+
+
+def scan_folder(folder: str, on_progress=None) -> List[Verdict]:
+    """体检一个文件夹：每个文件能不能转、为什么不行。
+
+    解决的问题：把一堆下载来的音乐丢进去，逐个试错很痛苦，���不清有多少
+    是废的。这里一次给出分类统计。
+    """
+    out: List[Verdict] = []
+    p = Path(folder)
+    if not p.is_dir():
+        return out
+    files = sorted((f for f in p.rglob("*") if f.is_file()),
+                   key=lambda f: str(f).lower())
+    n = 0
+    for f in files:
+        n += 1
+        if on_progress:
+            on_progress(n, len(files), f)
+        v = classify(f)
+        out.append(v)
+    return out
+
+
+def classify(path) -> Verdict:
+    """给单个文件下结论。复用 probe()，不重复实现判断逻辑。"""
+    p = Path(path)
+    name = p.name
+    try:
+        size = p.stat().st_size
+    except OSError:
+        return Verdict(str(p), VERDICT_BROKEN, 0, "读不到文件")
+    if size == 0:
+        return Verdict(str(p), VERDICT_EMPTY, 0, "空文件（0 字节）")
+    drm = _drm_kind(p)
+    if drm:
+        return Verdict(str(p), VERDICT_DRM, size,
+                       f"{drm}，带版权保护，解不开")
+    t = probe(str(p))
+    if t.ok:
+        return Verdict(str(p), VERDICT_OK, size, "", t)
+    # probe 失败的原因里含加密字样的，也归到 DRM（防止漏判）
+    if "版权保护" in t.why:
+        return Verdict(str(p), VERDICT_DRM, size, t.why)
+    if size == 0:
+        return Verdict(str(p), VERDICT_EMPTY, 0, t.why)
+    return Verdict(str(p), VERDICT_BROKEN, size, t.why)
+
+
+def audit_report(verdicts: List[Verdict]) -> dict:
+    """汇总成一张表。给界面和 --audit 用。"""
+    by = {VERDICT_OK: [], VERDICT_DRM: [], VERDICT_BROKEN: [], VERDICT_EMPTY: []}
+    for v in verdicts:
+        by.setdefault(v.verdict, []).append(v)
+    ok_bytes = sum(v.size for v in by[VERDICT_OK])
+    ok_secs = sum(v.track.duration for v in by[VERDICT_OK] if v.track)
+    lossless = sum(1 for v in by[VERDICT_OK] if v.track and v.track.lossless)
+    drm_bytes = sum(v.size for v in by[VERDICT_DRM])
+    return {
+        "total": len(verdicts),
+        "total_bytes": sum(v.size for v in verdicts),
+        "n_ok": len(by[VERDICT_OK]),
+        "n_drm": len(by[VERDICT_DRM]),
+        "n_broken": len(by[VERDICT_BROKEN]),
+        "n_empty": len(by[VERDICT_EMPTY]),
+        "ok_bytes": ok_bytes,
+        "drm_bytes": drm_bytes,
+        "ok_seconds": ok_secs,
+        "n_lossless": lossless,
+        "groups": {k: len(v) for k, v in by.items() if v},
+        "notes": {},
+    }
+
+
+def audit_lines(verdicts: List[Verdict], per_group: int = 200) -> str:
+    """给 --audit 用的文本表。"""
+    rep = audit_report(verdicts)
+    out: List[str] = []
+    out.append(f"共 {rep['total']} 个文件，{human(rep['total_bytes'])}")
+    out.append("")
+    labels = {
+        VERDICT_OK: "能转", VERDICT_DRM: "DRM 加密（解不开）",
+        VERDICT_BROKEN: "损坏 / 不是音频", VERDICT_EMPTY: "空文件",
+    }
+    for k, lab in ((VERDICT_OK, "能转"), (VERDICT_DRM, "DRM 加密（解不开）"),
+                   (VERDICT_BROKEN, "损坏 / 不是音频"), (VERDICT_EMPTY, "空文件")):
+        group = [v for v in verdicts if v.verdict == k]
+        if not group:
+            continue
+        out.append(f"== {lab}  {len(group)} 个  {human(sum(v.size for v in group))}")
+        for v in group[:per_group]:
+            note = f"   ({v.note})" if v.note else ""
+            out.append(f"   {Path(v.path).name}  {human(v.size)}{note}")
+        if len(group) > per_group:
+            out.append(f"   ... 还有 {len(group) - per_group} 个")
+        out.append("")
+    return "\n".join(out)
 
 
 # ---------------------------------------------------------------- 目标格式

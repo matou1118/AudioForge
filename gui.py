@@ -39,6 +39,11 @@ QMainWindow, QWidget#root {{ background:{t['bg']}; }}
 QLabel, QCheckBox, QScrollArea, QProgressBar, QComboBox {{
   color:{t['fg']}; font-family:"Microsoft YaHei UI","Segoe UI",sans-serif;
   font-size:13px; border:none; }}
+/* QScrollArea 里那层 viewport / 滚动容器 widget 必须显式透明。
+   不写的话它默认画自己的底色（黑），整块列表区就变成一条黑带 ——
+   症状是「界面看起来像白屏/花屏，实际只有中间一块是黑的」。
+   注意这条只针对 QScrollArea 的内部容器，不是全局 QWidget。 */
+QScrollArea > QWidget > QWidget {{ background:transparent; border:none; }}
 
 #title   {{ font-size:20px; font-weight:600; }}
 #subtitle{{ font-size:12px; color:{t['fg3']}; }}
@@ -308,6 +313,22 @@ class ConvertThread(QThread):
         self.all_done.emit()
 
 
+class AuditThread(QThread):
+    """后台跑文件夹体检。ffprobe 逐个文件起进程，文件夹大的话很慢。"""
+    one = Signal(object)
+    all_done = Signal(list)
+
+    def __init__(self, folder: str, parent=None):
+        super().__init__(parent)
+        self.folder = folder
+
+    def run(self) -> None:
+        vs = engine.scan_folder(
+            self.folder,
+            on_progress=lambda n, tot, f: self.one.emit((n, tot, str(f))))
+        self.all_done.emit(vs)
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -468,7 +489,10 @@ class MainWindow(QMainWindow):
         outer.addWidget(foot)
 
         self.setAcceptDrops(True)
-        self.set_updates(False)
+        # 注意：这里**不能**调 set_updates(False)。构造期关掉更新的话，控件
+        # 全部建好但永远不会被绘制 —— 窗口起来就是一片空白（白屏/黑屏）。
+        # 之前为了「转换时不重绘」加了这行，结果启动即白屏。
+        # 更新只在真正需要静默的时候（转换中）关，见 start_convert/_on_conv_done。
 
     def _tile(self, parent_layout, k, v, obj) -> QLabel:
         f = QFrame()
@@ -545,8 +569,9 @@ class MainWindow(QMainWindow):
             if not p:
                 continue
             if Path(p).is_dir():
-                paths += [str(x) for x in Path(p).iterdir()
-                          if x.suffix.lower() in AUDIO_EXTS]
+                # 递归整棵目录树。原来只 iterdir() 一层，子目录里的漏了。
+                paths += [str(x) for x in sorted(Path(p).rglob("*"))
+                          if x.is_file()]
             else:
                 paths.append(p)
         if paths:
@@ -582,6 +607,35 @@ class MainWindow(QMainWindow):
         self._render()
         self.stage.setText("")
         self.btn_go.setEnabled(any(t.ok for t in self.tracks))
+        self._show_audit()
+
+    # ---------------- 体检报告 ----------------
+    def _show_audit(self) -> None:
+        """探测完自动出一张体检表：能转 / DRM / 损坏 各多少。
+
+        回答的是「这堆文件里有多少是废的」。原来逐个文件报错，
+        用户得自己在脑子里汇总；而且 DRM 文件混在列表里看不出比例。
+        """
+        vs = [engine.classify(p) for p in (t.path for t in self.tracks)]
+        vs = [v for v in vs if v is not None]
+        if not vs:
+            return
+        rep = engine.audit_report(vs)
+        if rep["total"] == 0:
+            return
+        parts = [T("体检：")
+                 + f" {rep['n_ok']} {T('可转')}",
+                 f"{rep['n_drm']} {T('DRM 加密')}",
+                 f"{rep['n_broken']} {T('损坏')}",
+                 f"{rep['n_empty']} {T('空文件')}",
+                 T("合计") + f" {engine.human(rep['total_bytes'])}"]
+        txt = "  ·  ".join(parts)
+        self.stage.setText(txt)
+        self.stage.setToolTip(engine.audit_lines(vs, per_group=50))
+        if rep["n_drm"]:
+            # DRM 不是「坏了」，单独提示，免得以为下载失败
+            self.stage.setText(
+                txt + T("  （DRM 文件请从提供方买无 DRM 版本）"))
 
     def clear_all(self) -> None:
         self.tracks.clear()
@@ -783,6 +837,16 @@ def main() -> int:
              "  AudioForge.exe --version  打印版本\n"
              "配置见 exe 同目录的 settings.yaml")
         return 0
+    if "--audit" in sys.argv:
+        # 体检一个目录：能转 / DRM 加密 / 损坏 / 空文件，各多少
+        for d in sys.argv[sys.argv.index("--audit") + 1:]:
+            if not Path(d).is_dir():
+                emit(f"not a folder: {d}")
+                continue
+            vs = engine.scan_folder(d)
+            emit(engine.audit_lines(vs))
+        return 0
+
     if "--probe" in sys.argv:
         # CLI 探测：AudioForge.exe --probe a.flac b.flac
         # 打印走 stderr：打包成 console=False 后 stdout 不可靠（见 emit 注释）

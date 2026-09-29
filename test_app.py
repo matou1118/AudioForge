@@ -630,6 +630,94 @@ def t_tests_dont_touch_real_settings():
         "settings.yaml 里出现了测试临时路径，自检污染了用户的配置"
 
 
+def t_drm_files_reported_honestly():
+    """DRM 加密文件要**如实说它是加密的**，不能说「损坏」。
+
+    之前对 KGM 文件报「读不到时长，可能是损坏或不完整的文件」—— 那是误导：
+    文件是好的，只是有版权保护。用户会以为自己下载坏了、重新下一遍，
+    或者以为工具坏了。
+
+    这类文件还有个坑：喂给 ffprobe 不会干净报错，而是吐出半截乱码当元数据，
+    json.loads 抛 `Invalid \\escape`，报错完全指不到真因。所以必须在调
+    ffprobe **之前**按魔数拦下来。
+    """
+    d = tmpdir()
+    magic = engine.KGM_MAGIC
+    p = d / "song.kgm.flac"
+    p.write_bytes(magic + b"\x00" * 1024 + os.urandom(4000))
+    t = engine.probe(str(p))
+    assert not t.ok, "DRM 文件不该探测成功"
+    msg = t.why
+    assert "KGM" in msg, f"没认出是 KGM: {msg!r}"
+    assert "版权保护" in msg, f"没说清是版权保护: {msg!r}"
+    assert "没有坏" in msg or "没坏" in msg, f"没说明文件本身完好: {msg!r}"
+    for wrong in ("损坏", "不完整", "Invalid", "escape", "ffprobe"):
+        assert wrong not in msg, f"错误信息里不该出现 {wrong!r}: {msg!r}"
+
+    # 其它几种加密封装也要认得出
+    for name, head in (("VPR", engine.VPR_MAGIC), ("QMC", b"QMC\x00\x00")):
+        q = d / f"x.{name}"
+        q.write_bytes(head + os.urandom(2000))
+        m = engine.probe(str(q)).why
+        assert name in m, f"{name} 没认出来: {m!r}"
+
+    # 真的损坏的 FLAC 仍然该说损坏
+    f = d / "broken.flac"
+    f.write_bytes(b"fLaC" + b"\x00" * 40)     # 头合法但后面是垃圾
+    m2 = engine.probe(str(f)).why
+    assert "损坏" in m2 or "截断" in m2 or "读不出时长" in m2, m2
+
+
+def t_audit_classifies_folder():
+    """批量体检：能转 / DRM / 损坏 / 空文件，四类都要分对，且递归子目录。"""
+    import os as _os
+    d = tmpdir()
+    engine.make_tone_wav(d / "ok1.wav", seconds=0.5)
+    engine.make_tone_wav(d / "ok2.wav", seconds=0.5)
+    (d / "enc.kgm.flac").write_bytes(engine.KGM_MAGIC + b"\x00" * 1024
+                                      + _os.urandom(2000))
+    (d / "broken.flac").write_bytes(b"fLaC" + b"\x00" * 40)
+    (d / "empty.mp3").write_bytes(b"")
+    (d / "readme.txt").write_text("hello", encoding="utf-8")
+    sub = d / "sub"
+    sub.mkdir()
+    engine.make_tone_wav(sub / "nested.wav", seconds=0.3)   # 验证递归
+
+    vs = engine.scan_folder(str(d))
+    rep = engine.audit_report(vs)
+    assert rep["total"] == 7, f"应扫到 7 个（含子目录），实际 {rep['total']}"
+    assert rep["n_ok"] == 3, f"能转应为 3，实际 {rep['n_ok']}（子目录没递归？）"
+    assert rep["n_drm"] == 1, f"DRM 应为 1，实际 {rep['n_drm']}"
+    assert rep["n_broken"] == 2, f"损坏应为 2，实际 {rep['n_broken']}"
+    assert rep["n_empty"] == 1, f"空文件应为 1，实际 {rep['n_empty']}"
+    assert rep["total_bytes"] > 0
+    assert rep["drm_bytes"] > 0
+
+    # 文本报告要能给人看
+    txt = engine.audit_lines(vs)
+    for must in ("能转", "DRM", "损坏", "空文件", "共"):
+        assert must in txt, f"报告里缺 {must!r}:\n{txt}"
+
+    # DRM 文件不该混进可转列表
+    ok_paths = {v.path for v in vs if v.verdict == engine.VERDICT_OK}
+    assert not any("kgm" in p for p in ok_paths), "DRM 文件被误判成可转"
+
+
+def t_audit_cli():
+    """--audit 命令行能跑。"""
+    d = tmpdir()
+    engine.make_tone_wav(d / "a.wav", seconds=0.3)
+    (d / "e.kgm.flac").write_bytes(engine.KGM_MAGIC + b"\x00" * 512)
+    r = subprocess.run([sys.executable, str(ROOT / "gui.py"), "--audit", str(d)],
+                       capture_output=True, text=True, errors="replace",
+                       timeout=180, cwd=str(ROOT),
+                       env=dict(os.environ, PYTHONIOENCODING="utf-8"))
+    out = (r.stdout or "") + (r.stderr or "")
+    assert r.returncode == 0, out[-300:]
+    assert "DRM" in out, out[:300]
+    assert "a.wav" in out, out[:300]
+
+
 # ---------------------------------------------------------------- 文档 / 仓库
 
 def t_docs_present():
@@ -730,6 +818,9 @@ CHECKS = [
     ("非 UTF-8 控制台不崩", t_console_encoding_safe),
     ("打包后优先读 exe 同目录配置", t_resource_priority),
     ("打包后生成可改配置", t_ensure_settings_creates),
+    ("DRM 文件如实报错", t_drm_files_reported_honestly),
+    ("批量体检分类正确", t_audit_classifies_folder),
+    ("--audit 命令行", t_audit_cli),
 ]
 
 

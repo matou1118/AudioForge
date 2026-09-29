@@ -83,6 +83,43 @@ The language switch rebuilds the window, so **switching during a conversion wait
 
 File-level data (names, paths, codec names) isn't translated — it's data, not copy.
 
+## Batch audit
+
+Drop a **folder** in (it recurses the whole tree), or:
+
+```powershell
+python gui.py --audit D:\Music
+```
+
+You get a table answering "how much of this pile is actually unusable":
+
+```
+Total 7 files, 607.15 KB
+
+== convertible  3  603.16 KB
+== DRM-encrypted (can't be read)  1  3.95 KB
+   enc.kgm.flac  3.95 KB   (KGM (KuGou encrypted format), copyright protected)
+== damaged / not audio  2  49 B
+== empty  1  0 B
+```
+
+The status bar shows the same summary; hover it for details.
+
+### About DRM-encrypted files
+
+This tool does **not** circumvent copyright protection. KGM / VPR / QMC / NCM files
+are recognised and grouped separately instead of being reported as "damaged" - calling
+them damaged is misleading: the file is fine, it just has DRM on it.
+
+For a version you can play directly, buy a DRM-free copy from the provider (some QQ
+Music / KuGou albums are DRM-free after purchase; independent artists sell FLAC on
+Bandcamp).
+
+DRM is detected only so the tool can **tell you the truth** about the file. Nothing
+is unpacked.
+
+---
+
 ## Command line
 
 ```powershell

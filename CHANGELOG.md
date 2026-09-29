@@ -10,26 +10,26 @@ First public release.
 
 ### Added
 
-- **7 target formats** — MP3, AAC, Opus, Vorbis (lossy) and FLAC, ALAC, WAV (lossless). The self-test
-  checks that each one's encoder actually exists in your ffmpeg, so the UI never offers a format it can't
-  produce.
-- **Drag-and-drop or browse** for input, with per-file `ffprobe` inspection: codec, sample rate, channels,
-  duration, bitrate, and a lossless/lossy verdict.
-- **Real transcoding via ffmpeg**, with progress reporting and a working Cancel button.
-- **Sources are never modified.** Output goes to a separate folder; same-name files get `(2)`, `(3)`.
-- **Verified round-trip** — every output is read back with `ffprobe` and checked for codec, duration and
-  lossless-ness.
-- **Clean failure** — output is written to `.part` and only renamed on success, so a failed run leaves
-  nothing behind.
-- **Lossless → lossless is skipped** with a stated reason instead of burning CPU.
-- **6 colour themes** (Studio Dark / Studio Light / Paper / Ink / Rosé Pine / Tokyo Night), all verified
-  against WCAG AA (4.5:1).
-- **Chinese and English UI**, switchable, persisted to `settings.yaml`.
-- **`--probe` CLI** for inspecting files without the GUI.
-- **24 self-tests**, run in CI on Python 3.10–3.13.
+- **批量体检**：拖文件夹进来（递归整个目录树），或
+  \AudioForge.exe --audit <目录>\uff0c输出分类表：能转 / DRM 加密 /
+  损坏 / 空文件，各多少个、多大。回答的是「这堆
+  文件里有多少是废的」。界面底栏也显示汇总，悬停看逐条明细。
+- **DRM 文件如实识别**：KGM / VPR / QMC / NCM 会在调 ffprobe **之前**
+  按魔数拦下，归为「DRM 加密（解不开）」。本工具不做任何解包。
+
+### Fixed
+
+- **白屏**：构造期调了 \set_updates(False)\uff08原本是给「转换时不重绘」用的），
+  控件全部建好但永远不绘制，窗口起来一片空白。删掉后色彩数从 1 变成 181。
+- **报错文案误导**：对着完好的加密文件说「可能损坏或不完整」，用户会以为下载坏了。
+- **拖文件夹只取一层**：子目录里的文件漏了，改成 glob\ 递归。
+- **打包后优先读 exe 同目录的 settings.yaml**，不是 _MEIPASS 里那份只读副本。
+- **requirements.txt 漏了 PyYAML**：缺它时 \import yaml\ 失败被 except 吞掉，静默返回 \{}\uff0c
+  表现是「配置怎么改都不生效」。
+- **自检污染用户配置**：端到端测试直接写真实的 settings.yaml，未转义的 Windows 路径还让 YAML 解析失败——
+  又一个白窗口。
 
 ### Design decisions
-
 - **ffmpeg is a dependency, not a bundled blob.** It is LGPL/GPL, and redistributing it adds compliance
   cost and ~80 MB. The app detects it and tells you how to get it.
 - **The output container is declared explicitly with `-f`.** Intermediate files are named `song.mp3.part`,

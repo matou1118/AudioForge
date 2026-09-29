@@ -154,6 +154,14 @@ _EN: Dict[str, str] = {
     "探测中…": "Probing…",
     "条音频": "audio tracks",
     "已选择": "Selected",
+    # ---- 体检报告 ----
+    "体检：": "Audit:",
+    "可转": "convertible",
+    "DRM 加密": "DRM-encrypted",
+    "损坏": "damaged",
+    "空文件": "empty",
+    "（DRM 文件请从提供方买无 DRM 版本）": " (buy DRM-free copies from the provider)",
+
     # ---- 全角标点 ----
     "，": ", ",
     "：": ": ",
