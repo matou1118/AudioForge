@@ -1,12 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AudioForge — local audio transcoder that shows its work</title>
-<meta name="description" content="A standalone Windows audio converter. Sources are never touched, every output is verified by an ffprobe round-trip. 7 target formats, 6 themes, bilingual, open source.">
-<meta property="og:title" content="AudioForge — find what you can safely delete">
-<meta property="og:description" content="Local audio transcoder. Sources never touched, output verified by ffprobe round-trip. Open source.">
+<title>AudioForge — 找出真正能安全删掉的东西</title>
+<meta name="description" content="Windows 本地音频转码工具。源文件永不改动，每次转换后用 ffprobe 回读产物校验。7 种目标格式，6 套主题，中英双语。开源。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1117'/%3E%3Cpath d='M9 11h14M9 16h14M9 21h9' stroke='%237aa2f7' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -14,16 +12,13 @@
   --fg:#e6e9f0; --fg2:#aab3c5; --fg3:#828c9f;
   --accent:#7aa2f7; --accent2:#bb9af7; --safe:#9ece6a; --caution:#e0af68; --rose:#f7768e;
   --radius:18px; --max:1160px;
-  --ff:"Inter","Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif;
-  --fm:"JetBrains Mono",Consolas,"SF Mono",monospace;
+  --ff:"Inter","Segoe UI",system-ui,-apple-system,"Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+  --fm:"JetBrains Mono",Consolas,"SF Mono","Microsoft YaHei",monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{
-  font-family:var(--ff); color:var(--fg); background:var(--bg); line-height:1.6;
-  -webkit-font-smoothing:antialiased; overflow-x:hidden;
-}
-/* aurora */
+body{font-family:var(--ff);color:var(--fg);background:var(--bg);line-height:1.75;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
 .aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;background:
   radial-gradient(1200px 600px at 15% -10%,rgba(122,162,247,.20),transparent 60%),
   radial-gradient(900px 500px at 90% 10%,rgba(187,154,247,.16),transparent 60%),
@@ -31,18 +26,15 @@ body{
   var(--bg);}
 .aurora::after{content:"";position:absolute;inset:-40%;background:
   conic-gradient(from 0deg,transparent,rgba(122,162,247,.10),transparent 30%);
-  animation:spin 40s linear infinite;}
+  animation:spin 40s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .grid{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
   background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
-  background-size:56px 56px;
-  mask-image:radial-gradient(ellipse 100% 70% at 50% 0%,#000 40%,transparent 75%);}
+    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 100% 70% at 50% 0%,#000 40%,transparent 75%)}
 .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
 a{color:var(--accent);text-decoration:none}
-code,.mono{font-family:var(--fm)}
-
-/* nav */
+code,.mono{font-family:var(--fm);font-size:.92em}
 header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
   background:rgba(10,12,18,.72);border-bottom:1px solid rgba(255,255,255,.07)}
 nav{display:flex;align-items:center;gap:20px;height:64px}
@@ -50,59 +42,47 @@ nav{display:flex;align-items:center;gap:20px;height:64px}
 .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--safe);
   box-shadow:0 0 12px var(--safe);animation:pulse 2.4s infinite}
 @keyframes pulse{50%{opacity:.45;box-shadow:0 0 4px var(--safe)}}
-nav .links{margin-left:auto;display:flex;gap:26px;align-items:center}
-nav .links a{color:var(--fg2);font-size:.92rem;font-weight:500}
-nav .links a:hover{color:var(--fg)}
+nav .links{margin-left:auto;display:flex;gap:24px;align-items:center}
+nav .links>a{color:var(--fg2);font-size:.92rem;font-weight:500}
+nav .links>a:hover{color:var(--fg)}
 .lang{display:flex;background:var(--panel);border:1px solid var(--panel-b);border-radius:9px;overflow:hidden}
 .lang a{padding:6px 12px;font-size:.82rem;font-weight:700;color:var(--fg3)}
 .lang a.on{background:linear-gradient(135deg,#7aa2f7,#bb9af7);color:#08090d}
-/* sticky header 里的按钮不能用渐变：header 有 backdrop-filter，会在合成
-   层里把按钮整个压掉（字还在但看不清）。改用描边幽灵按钮。 */
 .gh-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;
-  background:rgba(255,255,255,.06);border:1px solid var(--panel-b);
-  color:var(--fg);font-weight:700;font-size:.9rem}
-.gh-btn:hover{border-color:var(--accent);color:var(--fg);transform:translateY(-1px)}
-.gh-btn:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(122,162,247,.4)}
+  background:rgba(255,255,255,.06);border:1px solid var(--panel-b);color:var(--fg);
+  font-weight:700;font-size:.9rem}
+.gh-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
 .gh-btn svg{width:17px;height:17px;fill:currentColor}
 .burger{display:none;background:none;border:0;color:var(--fg);font-size:1.6rem;cursor:pointer}
-
-/* hero */
 .hero{padding:96px 0 72px;text-align:center}
 .badge{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;
   background:var(--panel);border:1px solid var(--panel-b);font-size:.83rem;color:var(--fg2);
   margin-bottom:26px;backdrop-filter:blur(8px)}
 .badge .tag{background:var(--safe);color:#0a0c12;padding:2px 9px;border-radius:999px;
   font-size:.72rem;font-weight:800}
-h1{font-size:clamp(2.3rem,6.5vw,4.4rem);line-height:1.08;letter-spacing:-.02em;
-  font-weight:800;margin-bottom:22px}
+h1{font-size:clamp(2.1rem,6vw,4rem);line-height:1.2;letter-spacing:-.01em;font-weight:800;margin-bottom:22px}
 h1 .grad{background:linear-gradient(120deg,var(--accent),var(--accent2) 55%,var(--safe));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.lede{font-size:clamp(1.02rem,2.2vw,1.24rem);color:var(--fg2);max-width:660px;margin:0 auto 34px}
+.lede{font-size:clamp(1rem,2.2vw,1.2rem);color:var(--fg2);max-width:680px;margin:0 auto 34px}
 .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
 .btn{display:inline-flex;align-items:center;gap:9px;padding:13px 26px;border-radius:12px;
-  font-weight:700;font-size:.98rem;transition:.2s;cursor:pointer;border:1px solid transparent}
-.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0c12;
+  font-weight:700;font-size:.98rem;transition:.2s;border:1px solid transparent}
+.btn-primary{background:linear-gradient(135deg,#7aa2f7,#bb9af7);color:#08090d;
   box-shadow:0 10px 30px rgba(122,162,247,.32)}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(122,162,247,.45)}
 .btn-ghost{background:var(--panel);border-color:var(--panel-b);color:var(--fg);backdrop-filter:blur(8px)}
 .btn-ghost:hover{border-color:var(--accent);transform:translateY(-2px)}
 .meta{color:var(--fg3);font-size:.85rem}
 .meta b{color:var(--fg2);font-weight:600}
-
-/* window mock */
 .shot{margin:20px auto 0;max-width:980px;border-radius:var(--radius);overflow:hidden;
   border:1px solid var(--panel-b);background:var(--bg2);
-  box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04) inset;
-  transform:perspective(1600px) rotateX(6deg);transform-origin:top}
+  box-shadow:0 40px 90px rgba(0,0,0,.6);transform:perspective(1600px) rotateX(6deg);transform-origin:top}
 .shot img{width:100%;display:block}
-.shot .bar{display:flex;gap:7px;padding:11px 14px;border-bottom:1px solid var(--panel-b);
-  background:rgba(255,255,255,.02)}
+.shot .bar{display:flex;gap:7px;padding:11px 14px;border-bottom:1px solid var(--panel-b);background:rgba(255,255,255,.02)}
 .shot .bar i{width:11px;height:11px;border-radius:50%;background:#3a4050}
 .shot .bar i:nth-child(1){background:#f7768e}.shot .bar i:nth-child(2){background:#e0af68}
 .shot .bar i:nth-child(3){background:#9ece6a}
 .shot .cap{font-size:.78rem;color:var(--fg3);text-align:center;padding:11px;background:rgba(255,255,255,.015)}
-
-/* stats */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:64px}
 .stat{background:var(--panel);border:1px solid var(--panel-b);border-radius:14px;
   padding:22px;text-align:center;backdrop-filter:blur(8px)}
@@ -110,43 +90,33 @@ h1 .grad{background:linear-gradient(120deg,var(--accent),var(--accent2) 55%,var(
   background:linear-gradient(120deg,var(--accent),var(--accent2));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .stat .l{font-size:.82rem;color:var(--fg3);margin-top:4px}
-
-/* sections */
 section{padding:78px 0}
 .sec-head{text-align:center;margin-bottom:48px}
 .eyebrow{color:var(--accent);font-size:.8rem;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;margin-bottom:12px}
-h2{font-size:clamp(1.7rem,4vw,2.5rem);font-weight:800;letter-spacing:-.02em;margin-bottom:14px}
-.sec-head p{color:var(--fg2);max-width:620px;margin:0 auto}
-
-/* features */
+h2{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;line-height:1.35;margin-bottom:14px}
+.sec-head p{color:var(--fg2);max-width:640px;margin:0 auto}
 .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:stretch}
 .card{background:var(--panel);border:1px solid var(--panel-b);border-radius:var(--radius);
   padding:28px;backdrop-filter:blur(10px);transition:.25s;position:relative;overflow:hidden;
   display:flex;flex-direction:column}
-.card p{margin-bottom:0}
 .card::before{content:"";position:absolute;inset:0;opacity:0;transition:.25s;
   background:linear-gradient(135deg,rgba(122,162,247,.09),transparent 55%)}
 .card:hover{transform:translateY(-4px);border-color:rgba(122,162,247,.4)}
 .card:hover::before{opacity:1}
 .card .ico{font-size:1.7rem;margin-bottom:14px}
 .card h3{font-size:1.06rem;font-weight:700;margin-bottom:9px}
-.card p{color:var(--fg2);font-size:.92rem}
-
-/* scanners table */
+.card p{color:var(--fg2);font-size:.92rem;margin-bottom:0}
 .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
 .cat{display:flex;gap:15px;align-items:flex-start;background:var(--panel);
-  border:1px solid var(--panel-b);border-radius:14px;padding:20px;backdrop-filter:blur(8px);
-  transition:.2s}
+  border:1px solid var(--panel-b);border-radius:14px;padding:20px;backdrop-filter:blur(8px);transition:.2s}
 .cat:hover{border-color:rgba(122,162,247,.35);transform:translateX(3px)}
 .cat .em{font-size:1.5rem;flex-shrink:0}
 .cat .t{font-weight:700;margin-bottom:3px}
-.cat .d{color:var(--fg2);font-size:.85rem;line-height:1.5}
-
-/* safety */
+.cat .d{color:var(--fg2);font-size:.85rem;line-height:1.65}
 .safe-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
 .safe-list{background:var(--panel);border:1px solid var(--panel-b);border-radius:var(--radius);
-  padding:30px;backdrop-filter:blur(10px)}
+  padding:30px;backdrop-filter:blur(10px);margin:0;padding-left:30px}
 .safe-list li{list-style:none;display:flex;gap:13px;padding:11px 0;
   border-bottom:1px solid rgba(255,255,255,.05)}
 .safe-list li:last-child{border:0}
@@ -155,22 +125,16 @@ h2{font-size:clamp(1.7rem,4vw,2.5rem);font-weight:800;letter-spacing:-.02em;marg
 .safe-list b{display:block;margin-bottom:2px}
 .safe-list span{color:var(--fg2);font-size:.87rem}
 .code{background:var(--bg2);border:1px solid var(--panel-b);border-radius:14px;padding:18px;
-  font-family:var(--fm);font-size:.83rem;color:var(--fg2);overflow-x:auto;line-height:1.8}
+  font-family:var(--fm);font-size:.83rem;color:var(--fg2);overflow-x:auto;line-height:1.9}
 .code .cm{color:var(--fg3)}
 .code .kw{color:var(--accent2)}
 .code .st{color:var(--safe)}
-
-/* i18n / themes strip */
 .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
 .sw{border-radius:12px;padding:18px;border:1px solid var(--panel-b);text-align:center}
 .sw b{display:block;font-size:.9rem;margin-bottom:3px}
 .sw span{font-size:.74rem;opacity:.75}
-
-/* CTA band */
 .band{text-align:center;background:linear-gradient(135deg,rgba(122,162,247,.13),rgba(187,154,247,.1));
   border:1px solid rgba(122,162,247,.3);border-radius:24px;padding:52px 28px;margin:20px 0 10px}
-
-/* footer */
 footer{border-top:1px solid rgba(255,255,255,.07);padding:44px 0;margin-top:60px;
   color:var(--fg3);font-size:.87rem}
 .foot{display:flex;gap:22px;flex-wrap:wrap;align-items:center;justify-content:space-between}
@@ -179,14 +143,9 @@ footer{border-top:1px solid rgba(255,255,255,.07);padding:44px 0;margin-top:60px
 .lic{max-width:var(--max);margin:26px auto 0;padding:0 24px;font-size:.86rem;color:var(--fg2);line-height:1.75}
 .lic b{color:var(--fg)}
 .lic a{text-decoration:underline}
-
-/* reveal */
-/* reveal: 默认可见，JS 只是增强。绝不能写成 opacity:0 了事 ——
-   JS 挂了 / 还没执行 / 截图工具里，整页就白了。 */
 .rv{opacity:1}
 .js .rv{opacity:0;transform:translateY(26px);transition:.7s cubic-bezier(.2,.7,.3,1)}
 .js .rv.in{opacity:1;transform:none}
-
 @media(max-width:860px){
   nav .links{position:fixed;inset:64px 0 auto;background:rgba(10,12,18,.97);flex-direction:column;
     padding:26px;gap:20px;border-bottom:1px solid var(--panel-b);display:none}
@@ -196,10 +155,7 @@ footer{border-top:1px solid rgba(255,255,255,.07);padding:44px 0;margin-top:60px
   .safe-grid{grid-template-columns:1fr}
   .hero{padding:64px 0 56px}
 }
-@media(max-width:520px){
-  .stats{grid-template-columns:1fr}
-  .foot{flex-direction:column;text-align:center}
-}
+@media(max-width:520px){.stats{grid-template-columns:1fr}.foot{flex-direction:column;text-align:center}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -209,12 +165,12 @@ footer{border-top:1px solid rgba(255,255,255,.07);padding:44px 0;margin-top:60px
 <header>
   <div class="wrap"><nav>
     <div class="logo"><span class="dot"></span>AudioForge</div>
-    <button class="burger" id="burger" aria-label="Menu">☰</button>
+    <button class="burger" id="burger" aria-label="菜单">☰</button>
     <div class="links" id="links">
-      <a href="#features">Why</a>
-      <a href="#scanners">Formats</a>
-      <a href="#safety">Safety</a>
-      <div class="lang"><a href="index.html" class="on">EN</a><a href="index.zh.html">中文</a></div>
+      <a href="#features">为什么</a>
+      <a href="#scanners">格式</a>
+      <a href="#safety">安全性</a>
+      <div class="lang"><a href="index.zh.html" class="on">中文</a><a href="index.html">EN</a></div>
       <a href="https://github.com/matou1118/AudioForge" class="gh-btn" target="_blank" rel="noopener">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub</a>
@@ -222,138 +178,128 @@ footer{border-top:1px solid rgba(255,255,255,.07);padding:44px 0;margin-top:60px
   </nav></div>
 </header>
 
-<!-- HERO -->
 <div class="wrap">
   <div class="hero">
-    <div class="badge rv"><span class="tag">v0.1.0</span> open source · CC BY-NC 4.0 · Windows</div>
-    <h1 class="rv">A converter that<br><span class="grad">shows its work.</span></h1>
-    <p class="lede rv">Drop in audio, pick a format, press one button. Your sources are never
-      every file to the Recycle&nbsp;Bin, registry backed up before it's touched — and a reason
-      printed next to every single item.</p>
+    <div class="badge rv"><span class="tag">v0.1.0</span> 开源 · CC BY-NC 4.0 · Windows</div>
+    <h1 class="rv">一个会<br><span class="grad">回读校验的转换器</span></h1>
+    <p class="lede rv">拖音频进来，选格式，按一下。<b>源文件永不改动</b>，
+      每次转完都用 <code>ffprobe</code> 回读产物，确认它真的就是你想要的东西。</p>
     <div class="cta rv">
-      <a class="btn btn-primary" href="https://github.com/matou1118/AudioForge/releases/tag/v0.1.0">
-        ⬇ Download v0.1.0</a>
+      <a class="btn btn-primary" href="https://github.com/matou1118/AudioForge/releases/tag/v0.1.0">⬇ 下载 v0.1.0</a>
       <a class="btn btn-ghost" href="https://github.com/matou1118/AudioForge">
         <svg viewBox="0 0 16 16" style="width:17px;fill:currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
-        Star on GitHub</a>
+        去 GitHub 点个星</a>
     </div>
-    <p class="meta rv">Single <b>33 MB</b> exe · no Python, Node, Java or browser · <b>35</b> self-tests</p>
+    <p class="meta rv">单个 <b>33 MB</b> exe · 不需要 Python / Node / Java / 浏览器 · <b>35</b> 项自检</p>
 
     <div class="shot rv">
       <div class="bar"><i></i><i></i><i></i></div>
-      <img src="img/01-main.en.png" alt="AudioForge showing five imported tracks with codec, sample rate, channels and duration" loading="eager" width="1180" height="900">
-      <div class="cap">Every import is inspected with <code>ffprobe</code> — codec, sample rate, channels, duration, lossless or lossy.</div>
+      <img src="img/01-main.png" alt="AudioForge 已导入的音频列表，显示编码、采样率、声道、时长与有损无损" loading="eager" width="1120" height="820">
+      <div class="cap">每次导入都用 <code>ffprobe</code> 读出编码、采样率、声道、时长、有损无损。</div>
     </div>
 
     <div class="stats rv">
-      <div class="stat"><div class="n">7</div><div class="l">target formats</div></div>
-      <div class="stat"><div class="n">6</div><div class="l">colour themes, live switch</div></div>
-      <div class="stat"><div class="n">35</div><div class="l">self-tests, real transcodes</div></div>
-      <div class="stat"><div class="n">0</div><div class="l">files ever overwritten</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">种目标格式</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">套配色主题，实时切换</div></div>
+      <div class="stat"><div class="n">35</div><div class="l">项自检，真跑转码</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">个源文件被改动</div></div>
     </div>
   </div>
 </div>
 
-<!-- FEATURES -->
 <section id="features"><div class="wrap">
   <div class="sec-head rv">
-    <div class="eyebrow">Why it's built this way</div>
-    <h2>The worst failure mode of a<br>transcoder is lying to you</h2>
-    <p>It finishes, it looks successful, and the file is broken. So every output is
-      read back and checked. Ten milliseconds is cheap insurance.</p>
+    <div class="eyebrow">为什么这么做</div>
+    <h2>转码工具最恶劣的失败模式<br>是骗你说它成功了</h2>
+    <p>转完了、看着没问题、文件其实是坏的。所以每次输出都要回读校验 ——
+      多花十毫秒买个保险。</p>
   </div>
   <div class="feat">
-    <div class="card rv"><div class="ico">🔍</div><h3>Probe before converting</h3>
-      <p>No duration or sample rate means no conversion. Empty files, random bytes
-      and text files renamed <code>.mp3</code> are rejected with a stated reason.</p></div>
-    <div class="card rv"><div class="ico">♻️</div><h3>Sources are read-only</h3>
-      <p>Output always lands in a separate folder. Same names get numbered:
-      <code>song.mp3</code>, <code>song (2).mp3</code>. There is no overwrite option,
-      and there never will be.</p></div>
-    <div class="card rv"><div class="ico">✅</div><h3>Verified round-trip</h3>
-      <p>After each conversion the output is re-read with <code>ffprobe</code> and
-      checked for codec, duration and lossless-ness. The self-test transcodes all
-      seven formats for real.</p></div>
-    <div class="card rv"><div class="ico">🧹</div><h3>Clean failure</h3>
-      <p>Output is written to <code>.part</code> and only renamed on success. A
-      failed run leaves nothing behind — no half-written file.</p></div>
-    <div class="card rv"><div class="ico">⏭️</div><h3>Skips pointless work</h3>
-      <p>Lossless to lossless is skipped with a reason: turning FLAC into WAV just
-      swaps the container and doubles the size.</p></div>
-    <div class="card rv"><div class="ico">🔐</div><h3>DRM: honest, not sneaky</h3>
-      <p>KGM / VPR / QMC / NCM are recognised and grouped as unplayable. Calling them
-      "damaged" would be a lie — the file is fine, it has DRM on it.</p></div>
+    <div class="card rv"><div class="ico">🔍</div><h3>先探测再转码</h3>
+      <p>读不到时长或采样率就不转。空文件、随机字节、文本改名成 <code>.mp3</code>
+      —— 一律拒掉并说清原因。</p></div>
+    <div class="card rv"><div class="ico">♻️</div><h3>源文件只读</h3>
+      <p>输出永远写到独立目录。同名自动加序号：<code>song.mp3</code>、
+        <code>song (2).mp3</code>。<b>没有「覆盖源文件」这个选项，以后也不会有。</b></p></div>
+    <div class="card rv"><div class="ico">✅</div><h3>往返验证</h3>
+      <p>转完用 <code>ffprobe</code> 回读产物，校验编码、时长、无损判定。
+        自检里 7 种格式全部真转一遍再回读。</p></div>
+    <div class="card rv"><div class="ico">🧹</div><h3>失败不留痕</h3>
+      <p>输出先写 <code>.part</code>，成功才改名。一次失败的运行什么都不留下 ——
+        没有半截文件、没有临时文件。</p></div>
+    <div class="card rv"><div class="ico">⏭️</div><h3>跳过没意义的活</h3>
+      <p>无损转无损直接跳过并写明原因：FLAC 转 WAV 只是换容器，还平白涨一倍。</p></div>
+    <div class="card rv"><div class="ico">🔐</div><h3>对 DRM 诚实</h3>
+      <p>KGM / VPR / QMC / NCM 会被认出来并单独归类。说它「损坏」是撒谎 ——
+        文件是好的，只是有 DRM。<b>不做任何解包。</b></p></div>
   </div>
 </div></section>
 
 
-<!-- SCANNERS -->
 <section id="scanners"><div class="wrap">
   <div class="sec-head rv">
-    <div class="eyebrow">Seven targets</div>
-    <h2>Pick a format, pick a bitrate</h2>
-    <p>Input containers are unrestricted — anything <code>ffprobe</code> recognises
-      works (FLAC / WAV / AIFF / M4A / MP3 / AAC / Opus / OGG / WMA / APE / WavPack …).</p>
+    <div class="eyebrow">七种目标</div>
+    <h2>选格式，选码率</h2>
+    <p>输入容器不限 —— 凡 <code>ffprobe</code> 认得出来的都行
+      （FLAC / WAV / AIFF / M4A / MP3 / AAC / Opus / OGG / WMA / APE / WavPack …）。</p>
   </div>
   <div class="cats rv">
     <div class="cat"><span class="ext">.mp3</span><div><div class="t">MP3</div>
-      <div class="d">libmp3lame · lossy · three bitrate presets</div></div></div>
+      <div class="d">libmp3lame · 有损 · 三档码率</div></div></div>
     <div class="cat"><span class="ext">.m4a</span><div><div class="t">AAC</div>
-      <div class="d">aac · lossy · 192 kbps</div></div></div>
+      <div class="d">aac · 有损 · 192 kbps</div></div></div>
     <div class="cat"><span class="ext">.opus</span><div><div class="t">Opus</div>
-      <div class="d">libopus · lossy · 160 kbps</div></div></div>
+      <div class="d">libopus · 有损 · 160 kbps</div></div></div>
     <div class="cat"><span class="ext">.ogg</span><div><div class="t">Vorbis</div>
-      <div class="d">libvorbis · lossy · quality preset</div></div></div>
+      <div class="d">libvorbis · 有损 · 质量预设</div></div></div>
     <div class="cat"><span class="ext">.flac</span><div><div class="t">FLAC</div>
-      <div class="d">flac · <b>lossless</b></div></div></div>
+      <div class="d">flac · <b>无损</b></div></div></div>
     <div class="cat"><span class="ext">.m4a</span><div><div class="t">ALAC</div>
-      <div class="d">alac · <b>lossless</b></div></div></div>
+      <div class="d">alac · <b>无损</b></div></div></div>
     <div class="cat"><span class="ext">.wav</span><div><div class="t">WAV</div>
-      <div class="d">pcm_s16le · <b>lossless</b></div></div></div>
+      <div class="d">pcm_s16le · <b>无损</b></div></div></div>
   </div>
 </div></section>
 
 
-<!-- SAFETY -->
 <section id="safety"><div class="wrap">
   <div class="sec-head rv">
-    <div class="eyebrow">Batch audit</div>
-    <h2>How much of this pile<br>is actually junk?</h2>
-    <p>Drop a folder in — it recurses the whole tree — or run
-      <code>AudioForge.exe --audit D:\Music</code>.</p>
+    <div class="eyebrow">批量体检</div>
+    <h2>这堆文件里<br>到底有多少是废的</h2>
+    <p>拖一个文件夹进来（会递归整棵目录树），或者命令行：<br>
+      <code>AudioForge.exe --audit D:\Music</code></p>
   </div>
   <div class="safe-grid">
     <ul class="safe-list rv">
-      <li><span class="ck">✓</span><div><b>Convertible</b>
-        <span>Real audio, with codec, sample rate, channels and duration read from
-        the file.</span></div></li>
-      <li><span class="no">✕</span><div><b>DRM-encrypted</b>
-        <span>KGM / VPR / QMC / NCM. The file is intact — it just can't be played
-        without the provider's app. <b>Nothing is unpacked.</b></span></div></li>
-      <li><span class="no">✕</span><div><b>Damaged / not audio</b>
-        <span>Truncated FLAC, empty files, a text file renamed <code>.mp3</code>.
-        Each with the specific reason.</span></div></li>
-      <li><span class="no">✕</span><div><b>No "delete source" feature</b>
-        <span>Not now, not later, not on request.</span></div></li>
-      <li><span class="no">✕</span><div><b>No bundled codecs</b>
-        <span>ffmpeg is yours to install. It isn't redistributed.</span></div></li>
-      <li><span class="no">✕</span><div><b>No network, no telemetry</b>
-        <span>Runs fully offline. Nothing about your files leaves it.</span></div></li>
+      <li><span class="ck">✓</span><div><b>能转</b>
+        <span>真音频，编码 / 采样率 / 声道 / 时长都是从文件里读出来的。</span></div></li>
+      <li><span class="no">✕</span><div><b>DRM 加密</b>
+        <span>KGM / VPR / QMC / NCM。文件是完好的，只是没提供方的 app 播不了。
+          <b>本工具不做任何解包。</b></span></div></li>
+      <li><span class="no">✕</span><div><b>损坏 / 不是音频</b>
+        <span>被截断的 FLAC、空文件、文本改名成 <code>.mp3</code> ——
+          每条都写清具体原因。</span></div></li>
+      <li><span class="no">✕</span><div><b>没有「转完删源文件」</b>
+        <span>现在没有，以后也不会有。</span></div></li>
+      <li><span class="no">✕</span><div><b>不捆绑编解码器</b>
+        <span>ffmpeg 由你自己安装，本项目不分发。</span></div></li>
+      <li><span class="no">✕</span><div><b>不联网、不上报</b>
+        <span>完全离线。你文件的任何信息都不会离开它。</span></div></li>
     </ul>
     <div class="rv">
-      <div class="code"><span class="cm"># what a conversion actually does</span>
+      <div class="code"><span class="cm"># 一次转换实际做了什么</span>
 cmd = build_cmd(src, dst_partial, target, bitrate)
 out_opts = [<span class="st">"-f"</span>, target.fmt, <span class="st">"-map_metadata"</span>, <span class="st">"0"</span>]
 cmd = cmd[:-<span class="st">1</span>] + out_opts + [dst_partial]
-<span class="cm">#                ^ explicit container: the temp file is</span>
-<span class="cm">#                  song.mp3.part, and ffmpeg can't</span>
-<span class="cm">#                  infer a muxer from ".part"</span>
+<span class="cm">#              ^ 显式指定容器：中间文件叫</span>
+<span class="cm">#                song.mp3.part，ffmpeg 认不出</span>
+<span class="cm">#                .part 是什么格式</span>
 <span class="cm">#</span>
-<span class="cm"># ... run it ...</span>
+<span class="cm"># ... 跑 ...</span>
 <span class="kw">if</span> proc.returncode != <span class="st">0</span>:
-    dst_partial.unlink()          <span class="cm"># nothing left behind</span>
+    dst_partial.unlink()        <span class="cm"># 什么都不留</span>
 
-<span class="cm"># then read the result back and check it</span>
+<span class="cm"># 然后把结果读回来校验</span>
 back = probe(dst)
 <span class="kw">assert</span> back.codec == expected
 <span class="kw">assert</span> abs(back.duration - src.duration) &lt; <span class="st">0.3</span></div>
@@ -362,48 +308,45 @@ back = probe(dst)
 </div></section>
 
 
-<!-- THEMES -->
 <section><div class="wrap">
   <div class="sec-head rv">
-    <div class="eyebrow">Look</div>
-    <h2>Six themes, zero rebuilds</h2>
-    <p>Switch in the top-right; the choice is written straight back to
-      <code>settings.yaml</code> and survives a restart.</p>
+    <div class="eyebrow">外观</div>
+    <h2>六套主题，不用重新打包</h2>
+    <p>右上角切换，选择直接写回 <code>settings.yaml</code>，重启还在。</p>
   </div>
   <div class="strip rv">
-    <div class="sw" style="background:#1a1b26;color:#c0caf5"><b>Tokyo Night</b><span>default</span></div>
-    <div class="sw" style="background:#232136;color:#e0def4"><b>Rosé Pine</b><span>soft contrast</span></div>
-    <div class="sw" style="background:#0f1117;color:#e6e9f0"><b>Ink</b><span>near-black</span></div>
-    <div class="sw" style="background:#ffffff;color:#1a1a1a"><b>Paper</b><span>light</span></div>
-    <div class="sw" style="background:#faf8f3;color:#2b2b2b"><b>Studio Light</b><span>warm</span></div>
-    <div class="sw" style="background:#2b2b31;color:#e8e8ea"><b>Studio Dark</b><span>neutral</span></div>
+    <div class="sw" style="background:#1a1b26;color:#c0caf5"><b>Tokyo Night</b><span>默认</span></div>
+    <div class="sw" style="background:#232136;color:#e0def4"><b>Rosé Pine</b><span>柔和对比</span></div>
+    <div class="sw" style="background:#0f1117;color:#e6e9f0"><b>Ink</b><span>近黑</span></div>
+    <div class="sw" style="background:#ffffff;color:#1a1a1a"><b>Paper</b><span>浅色</span></div>
+    <div class="sw" style="background:#faf8f3;color:#2b2b2b"><b>Studio Light</b><span>暖白</span></div>
+    <div class="sw" style="background:#2b2b31;color:#e8e8ea"><b>Studio Dark</b><span>中性</span></div>
   </div>
 </div></section>
 
-<!-- CTA -->
 <section><div class="wrap">
   <div class="band rv">
-    <h2 style="margin-bottom:12px">Try it on a machine you care about</h2>
-    <p style="color:var(--fg2);max-width:520px;margin:0 auto 28px">
-      One exe, no install, no dependencies. Read the reasons it gives, then decide.</p>
+    <h2 style="margin-bottom:12px">在你在乎的机器上试一下</h2>
+    <p style="color:var(--fg2);max-width:540px;margin:0 auto 28px">
+      单个 exe，不装环境，不装依赖。先看它查出了什么，再决定转不转。</p>
     <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/matou1118/AudioForge/releases/tag/v0.1.0">⬇ Download v0.1.0</a>
-      <a class="btn btn-ghost" href="https://github.com/matou1118/AudioForge">Browse the source</a>
+      <a class="btn btn-primary" href="https://github.com/matou1118/AudioForge/releases/tag/v0.1.0">⬇ 下载 v0.1.0</a>
+      <a class="btn btn-ghost" href="https://github.com/matou1118/AudioForge">看看源码</a>
     </div>
   </div>
 </div></section>
 
-<p class="lic">Licence: CC BY-NC 4.0 — free to modify and remix,
-  <b>attribution to Matou1118 required</b>, <b>non-commercial only</b>.
-  <a href="https://github.com/matou1118/AudioForge/blob/main/LICENSE">Full terms</a></p>
+<p class="lic">许可：CC BY-NC 4.0 — 可以修改和二次开发，
+  <b>必须署名 Matou1118</b>，<b>不允许商用</b>。
+  <a href="https://github.com/matou1118/AudioForge/blob/main/LICENSE">条款全文 · Full terms</a></p>
 <footer><div class="wrap foot">
   <div>AudioForge v0.1.0 · CC BY-NC 4.0 · <a href="https://github.com/matou1118/AudioForge">github.com/matou1118/AudioForge</a></div>
   <nav style="display:flex;gap:20px">
-    <a href="https://github.com/matou1118/AudioForge">Source</a>
-    <a href="https://github.com/matou1118/AudioForge/releases">Releases</a>
+    <a href="https://github.com/matou1118/AudioForge">源码</a>
+    <a href="https://github.com/matou1118/AudioForge/releases">版本发布</a>
     <a href="https://github.com/matou1118/AudioForge/releases/tag/v0.1.0">v0.1.0</a>
-    <a href="https://github.com/matou1118/AudioForge/issues">Issues</a>
-    <a href="https://github.com/matou1118/AudioForge/blob/main/LICENSE">License</a>
+    <a href="https://github.com/matou1118/AudioForge/issues">问题反馈</a>
+    <a href="https://github.com/matou1118/AudioForge/blob/main/LICENSE">许可证</a>
   </nav>
 </div></footer>
 
@@ -411,17 +354,14 @@ back = probe(dst)
 const b=document.getElementById('burger'),l=document.getElementById('links');
 b.onclick=()=>l.classList.toggle('open');
 l.querySelectorAll('a').forEach(a=>a.onclick=()=>l.classList.remove('open'));
-// 只有 JS 真的活着时才启用入场动画，否则保持静态可见。
 document.documentElement.classList.add('js');
 const io=new IntersectionObserver(es=>es.forEach(e=>{
   if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}
 }),{threshold:.12});
 document.querySelectorAll('.rv').forEach((e,i)=>{e.style.transitionDelay=(i%4)*60+'ms';io.observe(e)});
-// 兜底：1.2s 后还没 revealed 的全部显示出来，绝不留白屏
 setTimeout(()=>document.querySelectorAll('.rv:not(.in)').forEach(e=>e.classList.add('in')),1200);
 
-/* A transcoder has no "reclaimable" figure, so there is no stats.json here.
-   These are fixed facts about the app. */
+/* 转码器没有「可回收多少」这个概念，数字是应用的固定事实，直接写死在页面里。 */
 </script>
 </body>
 </html>
